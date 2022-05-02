@@ -41,7 +41,7 @@ __all__ = [
     "RandomScaleAspect", "RandomExpand", "Padding", "MixupImage",
     "RandomDistort", "RandomBlur", "RandomSwap", "Defogging", "DimReducing",
     "BandSelecting", "ArrangeSegmenter", "ArrangeChangeDetector",
-    "ArrangeClassifier", "ArrangeDetector", "RandomFlipOrRotation"
+    "ArrangeClassifier", "ArrangeDetector", "RandomFlipOrRotation", 'RandomNoise'
 ]
 
 interp_dict = {
@@ -1764,4 +1764,68 @@ class ArrangeDetector(Transform):
     def apply(self, sample):
         if self.mode == 'eval' and 'gt_poly' in sample:
             del sample['gt_poly']
+        return sample
+
+"""
+直接copy到 PaddleRS/paddlers/transforms/operator.py 里面
+记得在 __all__ 里加上 "RandomNoise"
+"""
+class RandomNoise(Transform):
+    """
+    Randomly noise input image(s).
+
+    Args:
+        noise_type (str) : 'gauss' or 's&p'
+        prob (float): Probability of noising.
+    """
+
+    def __init__(self, noise_type, prob=0.5):
+        super(RandomNoise, self).__init__()
+        self.prob = prob
+        self.noise_type = noise_type
+
+    def _noisy(self, noise_type, image):
+        row, col, ch = image.shape
+        if noise_type == 'gauss':
+            mean = 0
+            var = random.randint(200, 800)
+            sigma = var**0.5
+            gauss = np.random.normal(mean, sigma, (row, col, ch)).reshape(row, col, ch)
+            noisy = image + gauss
+            return np.clip(noisy, 0, 255).astype(np.uint8)
+
+        elif noise_type == 's&p':
+            s_vs_p = 0.5
+            amount = 0.004
+            out = np.copy(image)
+            # Salt mode
+            num_salt = np.ceil(amount * image.size * s_vs_p)
+            coords = [np.random.randint(0, i - 1, int(num_salt)) for i in image.shape]
+            out[coords] = 255
+
+            # Pepper mode
+            num_pepper = np.ceil(amount* image.size * (1. - s_vs_p))
+            coords = [np.random.randint(0, i - 1, int(num_pepper)) for i in image.shape]
+            out[coords] = 0
+            return out
+        else:
+            raise ValueError("Currently `noise_type` must be set to 's&p' or 'gauss'.")
+
+
+    def apply_im(self, image):
+        image = self._noisy(self.noise_type, image)
+        return image
+
+    def apply(self, sample):
+        if self.prob <= 0:
+            n = 0
+        elif self.prob >= 1:
+            n = 1
+        else:
+            n = int(1.0 / self.prob)
+        if n > 0:
+            if np.random.randint(0, n) == 0:
+                sample['image'] = self.apply_im(sample['image'])
+                # if 'image2' in sample:
+                #    sample['image2'] = self.apply_im(sample['image2'], radius)
         return sample
