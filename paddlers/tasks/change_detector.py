@@ -182,7 +182,8 @@ class BaseChangeDetector(BaseModel):
                         losses=losses, coef=coef),
                 ]
             else:
-                loss_type = [paddleseg.models.CrossEntropyLoss()]
+                # loss_type = [paddleseg.models.CrossEntropyLoss()]
+                loss_type = [paddleseg.models.FocalLoss()]
         else:
             losses, coef = list(zip(*self.use_mixed_loss))
             if not set(losses).issubset(

@@ -23,7 +23,7 @@ from skimage import exposure
 
 
 def normalize(im, mean, std, min_value=[0, 0, 0], max_value=[255, 255, 255]):
-    # Rescaling (min-max normalization)
+    # Rescaling (min-max normalfization)
     range_value = np.asarray(
         [1. / (max_value[i] - min_value[i]) for i in range(len(max_value))],
         dtype=np.float32)
